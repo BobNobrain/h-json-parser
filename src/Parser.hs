@@ -1,26 +1,11 @@
 module Parser
-    ( JSON
-    , parseJSON
+    ( parseJSON
     ) where
 
+import Json
 import Text.ParserCombinators.Parsec
 import Data.Char (chr)
 import Numeric (readHex)
-
-
-data JSON
-    = JNull
-    | JBool Bool
-    | JNum Double
-    | JStr String
-    | JArr [JSON]
-    | JObj [(String, JSON)]
-    deriving (Show, Eq)
-
-data JString
-    = JStringEmpty
-    | JChars String
-    | JEscapedChar Char
 
 parseJSON :: String -> Either ParseError JSON
 parseJSON = parse jsonValue "(input)"
