@@ -26,7 +26,12 @@ parseJSON :: String -> Either ParseError JSON
 parseJSON = parse jsonValue "(input)"
 
 jsonValue :: GenParser Char st JSON
-jsonValue = choice [jsonKeyword, jsonNumber, jsonString, jsonObject, jsonArray]
+jsonValue = do
+    _ <- spaces
+    r <- choice [jsonKeyword, jsonNumber, jsonString, jsonObject, jsonArray]
+    _ <- spaces
+    return r
+
 
 jsonKeyword :: GenParser Char st JSON
 jsonKeyword = do
@@ -38,15 +43,15 @@ jsonKeyword = do
 
 jsonNumber :: GenParser Char st JSON
 jsonNumber = do
-    isNegative <- parseMinus
-    wholePart <- readWholePart
+    isNegative <- optionalMinus
+    wholePart <- wholePartRule
     hasFractional <- optionMaybe $ char '.'
     fractionalPart <- case hasFractional of Nothing -> return 0.0
-                                            Just '.' -> readFracPart
+                                            Just '.' -> fracPartRule
 
     hasExp <- optionMaybe $ choice [char 'e', char 'E']
     exponentialPart <- case hasExp of Nothing -> return 0.0
-                                      Just _ -> readExpPart
+                                      Just _ -> expPartRule
 
     return $ constructNumber isNegative wholePart fractionalPart exponentialPart
     where
@@ -57,21 +62,21 @@ jsonNumber = do
             n2 :: Double
             n2 = fractionalPart + fromInteger wholePart
 
-        parseMinus = do
+        optionalMinus = do
             r <- optionMaybe $ char '-'
             case r of Nothing -> return False
                       Just '-' -> return True
 
-        readWholePart = do
+        wholePartRule = do
             first <- choice [char '0', oneOf ['1'..'9']]
             rest <- many digit
             return $ read (first:rest)
 
-        readFracPart = do
+        fracPartRule = do
             digits <- many digit
             return $ read $ "0." ++ digits
 
-        readExpPart = do
+        expPartRule = do
             signMb <- optionMaybe $ choice [char '-', char '+']
             digits <- many digit
             return $ ct signMb digits where
@@ -110,20 +115,26 @@ jsonString = do
 jsonArray :: GenParser Char st JSON
 jsonArray = do
     _ <- char '['
-    content <- sepBy jsonValue $ char ','
+    _ <- spaces
+    content <- sepBy jsonValue $ spaces >> char ',' >> spaces
+    _ <- spaces
     _ <- char ']'
     return $ JArr content
 
 jsonObject :: GenParser Char st JSON
 jsonObject = do
     _ <- char '{'
-    pairs <- sepBy kvPair $ char ','
+    _ <- spaces
+    pairs <- sepBy kvPair $ spaces >> char ',' >> spaces
+    _ <- spaces
     _ <- char '}'
     return $ JObj pairs
     where
         kvPair = do
             key <- jsonString
+            _ <- spaces
             _ <- char ':'
+            _ <- spaces
             value <- jsonValue
             return (extract key, value)
 
